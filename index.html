@@ -1,7 +1,12 @@
 <title>SowSmart Loan Radar</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500..800&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
+#lmap .leaflet-pane svg,#lmap .leaflet-container svg{width:auto;height:auto;max-width:none}
+#lmap{height:360px;border-radius:10px;border:1px solid var(--line);z-index:0}
+.leaflet-container{font-family:var(--body)}
 /* Layout concept: one working screen for a loan officer. Controls, portfolio money tiles, map beside a ranked list, selected loan against its own history, country comparison, warning time, then the editable crop assumptions. */
 :root{
   --bg:#f1f4ee; --surface:#ffffff; --fg:#14201a; --muted:#5b675f; --line:#dbe2d6;
@@ -28,6 +33,17 @@ h2{font-family:var(--display);font-weight:700;font-size:18px;margin:0;text-wrap:
 .hero{display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:var(--green,#2f6f33);color:#f6f4ee;border-radius:14px;padding:18px 20px}.hero h2{margin:0 0 6px;font-size:20px;color:#f6f4ee}.hero p{margin:0 0 6px;font-size:14px;max-width:62ch;color:#e8efe0}.hero .note{color:#dfeccd}.hero button{padding:12px 18px;border-radius:10px;border:0;background:#f6f4ee;color:#1f4a22;font:inherit;font-weight:700;cursor:pointer}
 .topcard{background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--high);border-radius:14px;padding:14px 16px;font-size:17px;line-height:1.4}.topcard.ok{border-left-color:var(--low)}.topcard b{font-weight:700}
 #data summary{cursor:pointer;font-weight:600}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.chip{padding:6px 14px;border-radius:999px;font-weight:700;font-size:14px;color:#fff}.chip.high{background:var(--high)}.chip.med{background:var(--med)}.chip.low{background:var(--low)}
+.feed{display:flex;flex-direction:column}.arow{display:flex;flex-direction:column;gap:3px;text-align:left;width:100%;background:transparent;border:0;border-top:1px solid var(--line);padding:10px 2px;font:inherit;color:inherit;cursor:pointer}.arow b{font-size:15px}.arow small{font-size:13px;color:var(--muted)}.arow .t{font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:700}
+.digest{white-space:pre-wrap;font-size:13px;background:var(--band);padding:10px;border-radius:8px}
+#more>summary{cursor:pointer;font-weight:600}#more>section,#more>div{margin-top:12px}
+.chip{border:0;cursor:pointer;font:inherit;font-weight:700}.chip.all{background:var(--band);color:var(--fg);border:1px solid var(--line)}
+.sub{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}.sub summary{cursor:pointer;font-weight:600;font-size:15px}.sub input,.sub select{font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:inherit;min-width:0}.sub button{padding:9px 14px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:inherit;font:inherit;cursor:pointer}
+.mail{margin-top:10px;border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface)}.mail .sj{font-weight:700;margin-bottom:6px}.mail pre{white-space:pre-wrap;font:inherit;font-size:14px;margin:0}
+.help{font-size:14px}.help ul{margin:8px 0 0 18px;padding:0;display:flex;flex-direction:column;gap:4px}.sec{font-size:15px;margin:14px 0 0}
+.topbar{display:flex;flex-direction:row;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap}.topbar h1{margin:2px 0}.asof{display:flex;flex-direction:column;align-items:flex-end;gap:2px}.asof b{font-size:20px}.asof button{margin-top:4px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:inherit;font-size:13px;cursor:pointer}
+#demo[hidden]{display:none}@media (max-width:600px){.asof{align-items:flex-start}}
+.next{background:var(--band);border-radius:10px;padding:10px 12px;font-size:15px}.next b{font-weight:700}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0}
 .controls{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:flex-end}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -90,38 +106,41 @@ a{color:var(--green)}
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s}}
 </style>
 <div class="wrap">
-<header>
-<span class="eyebrow">SowSmart · Suyana challenge</span>
-<h1>Loan book radar</h1>
-<p class="note">Early drought and heat alerts for farm loans, with what to do next. Demo on synthetic loans. All values in US dollars.</p>
-</header>
-<section class="hero" id="hero"><div><h2>See it work: the 2022/23 drought at our pilot farm</h2><p>Real weather from 1995 to 2025 at 34.06°S, 61.20°W in Buenos Aires province. Tap once to replay the worst drought in 30 years and see which loans the radar flags, and when.</p><p class="note" id="dstat">Not loaded yet. The map below shows a simulated demo until you tap the button.</p></div><button type="button" id="bHero">Replay the 2022/23 drought</button></section>
+<header class="topbar"><div><span class="eyebrow">SowSmart · Suyana challenge</span><h1>Soy loan radar</h1><p class="note">Buenos Aires province pilot · 12 loans · weather is real, loans are synthetic</p></div><div class="asof"><span class="note">Data as of</span><b id="asof"></b><button type="button" id="bDemo">Demo controls</button></div></header>
 
-<section class="panel controls" aria-label="Controls">
-<div class="field"><span>Country</span><div class="seg" id="ctry"></div></div>
-<div class="field"><span>Season</span><div class="seg" id="scen"></div></div>
-<div class="field"><span>Region</span><select id="reg"></select></div>
-<div class="field"><span>Crop</span><select id="crop"></select></div>
-<div class="field"><span>Show</span><select id="lvl"><option value="all">All loans</option><option value="stress">Medium and high stress</option><option value="high">High stress only</option><option value="gap">Stressed and uninsured</option><option value="short">Repayment shortfall likely</option></select></div>
+<button type="button" id="bHero" hidden>x</button>
+
+<section class="panel controls" id="demo" aria-label="Demo controls" hidden>
+<div class="field"><span>Season to replay</span><select id="sSeason"><option value="2025">2025/26 (so far)</option><option value="2024">2024/25</option><option value="2023">2023/24</option><option value="2022" selected>2022/23 (drought case study)</option><option value="2021">2021/22</option></select></div>
+<div class="field" style="display:none"><span>Country</span><div class="seg" id="ctry"></div></div>
+<div class="field" style="display:none"><span>Season</span><div class="seg" id="scen"></div></div>
+<div class="field" style="display:none"><span>Region</span><select id="reg"></select></div>
+<div class="field" style="display:none"><span>Crop</span><select id="crop"></select></div>
+<div class="field"><span>Show</span><select id="lvl"><option value="all">All loans</option><option value="stress">Act now and Watch</option><option value="high">Act now only</option><option value="watch">Watch only</option><option value="ok">On track only</option><option value="gap">Stressed and uninsured</option><option value="short">Repayment shortfall likely</option></select></div>
 <div class="field" style="flex:1;min-width:280px"><span>Replay the season</span>
 <div class="weekrow"><button class="play" id="play" type="button">Play</button><input type="range" id="week" min="1" max="30" value="16" step="1" aria-label="Week of the season"><span class="wk" id="wklabel"></span></div></div>
 </section>
 
 <section class="topcard" id="top" aria-live="polite"></section>
 <section class="tiles" id="tiles" aria-live="polite"></section>
+<section class="panel" id="alerts"><div class="head"><h2>Today's alerts</h2><span class="note" id="adate"></span></div><div class="chips" id="achips"></div><div class="feed" id="afeed"></div><div class="drow" style="margin-top:10px"><button type="button" id="bCopy">Copy daily digest</button><button type="button" id="bCsv">Download alerts (CSV)</button></div><pre class="digest" id="digest" hidden></pre><details class="sub" id="sub"><summary>Get these alerts by email every morning</summary><div class="drow" style="align-items:flex-end;margin-top:8px"><label class="note">Email<br><input type="email" id="subMail" placeholder="analyst@bank.com"></label><label class="note">Send me<br><select id="subLvl"><option value="stress">Act now and Watch</option><option value="high">Act now only</option></select></label><label class="note">Time<br><select id="subTime"><option>07:00</option><option selected>08:00</option><option>09:00</option></select></label><button type="button" id="subSave">Save settings</button><button type="button" id="subPrev">Preview the email</button></div><p class="note" id="subNote">Demo only: settings are saved in this browser and no email is sent. In production the same summary arrives every morning.</p><div class="mail" id="mail" hidden></div></details>
+<p class="note" style="margin-top:8px">You can also copy the digest or download it as a spreadsheet.</p></section>
 
 <div class="grid2">
-<section class="panel"><div class="head"><h2>Where the stress is</h2><span class="note" id="mapnote"></span></div><div id="map"></div>
-<div class="lg"><span><i class="dot" style="background:var(--high)"></i>High</span><span><i class="dot" style="background:var(--med)"></i>Medium</span><span><i class="dot" style="background:var(--low)"></i>Low</span><span>Circle size is crop value</span></div></section>
-<section class="panel"><div class="head"><h2>Loans ranked by stress</h2><span class="note" id="listnote"></span></div><div class="list" id="list"></div></section>
+<section class="panel"><div class="head"><h2>Where the stress is</h2><span class="note" id="mapnote"></span></div><div id="map"><div id="lmap" hidden></div><div id="svgmap"></div></div>
+<div class="lg"><span><i class="dot" style="background:var(--high)"></i>Act now</span><span><i class="dot" style="background:var(--med)"></i>Watch</span><span><i class="dot" style="background:var(--low)"></i>On track</span><span>Circle size is crop value</span></div></section>
+<section class="panel"><div class="head"><h2>Loans, most urgent first</h2><span class="note" id="listnote"></span></div><div class="list" id="list"></div></section>
 </div>
 
-<details class="panel" id="data"><summary>Advanced: other weather seasons, your own data and alert rules</summary><p class="note">Load real data into the “Your data” season. Loans without data stay on the simulated normal season.</p><div class="drow"><button type="button" id="bSat">Satellite and rain CSV</button><button type="button" id="bHeat">Temperature CSV (Argentina soy)</button></div><div class="drow" style="align-items:center"><label class="note">Hot days needed in a week: <b id="vMin">3</b><input type="range" id="sMin" min="1" max="5" value="3"></label><label class="note">Weeks in a row: <b id="vWk">1</b><input type="range" id="sWk" min="1" max="3" value="1"></label></div><div class="drow" style="align-items:center"><label class="note">Weather season <select id="sSeason"><option value="2025">2025/26 (so far)</option><option value="2024">2024/25</option><option value="2023">2023/24</option><option value="2022" selected>2022/23 (drought year)</option><option value="2021">2021/22</option><option value="2020">2020/21</option><option value="2019">2019/20</option><option value="2018">2018/19</option><option value="2017">2017/18</option><option value="2016">2016/17</option><option value="2015">2015/16</option><option value="2014">2014/15</option><option value="2013">2013/14</option><option value="2012">2012/13</option><option value="2011">2011/12</option><option value="2010">2010/11</option><option value="2009">2009/10</option><option value="2008">2008/09</option><option value="2007">2007/08</option><option value="2006">2006/07</option><option value="2005">2005/06</option><option value="2004">2004/05</option><option value="2003">2003/04</option><option value="2002">2002/03</option><option value="2001">2001/02</option><option value="2000">2000/01</option><option value="1999">1999/00</option><option value="1998">1998/99</option><option value="1997">1997/98</option><option value="1996">1996/97</option><option value="1995">1995/96</option></select></label><label class="note"><input type="checkbox" id="cAnom" checked> Count only days above this place’s own normal (top 10% for the date)</label></div>
+<details class="panel" id="data"><summary>Settings: data sources and alert rules</summary><p class="note" id="dstat">Pilot weather loaded.</p><p class="note">Load real data into the “Your data” season. Loans without data stay on the simulated normal season.</p><div class="drow"><button type="button" id="bSat">Satellite and rain CSV</button><button type="button" id="bHeat">Temperature CSV (Argentina soy)</button></div><div class="drow" style="align-items:center"><label class="note">Hot days needed in a week: <b id="vMin">3</b><input type="range" id="sMin" min="1" max="5" value="3"></label><label class="note">Weeks in a row: <b id="vWk">1</b><input type="range" id="sWk" min="1" max="3" value="1"></label></div><div class="drow" style="align-items:center"><label class="note"><input type="checkbox" id="cAnom" checked> Count only days above this place’s own normal (top 10% for the date)</label></div>
 <p class="note" id="rstat"></p>
 <button type="button" id="bBA" hidden>pilot</button><input type="file" id="fSat" accept=".csv" hidden><input type="file" id="fHeat" accept=".csv" hidden></details>
 <section class="panel drill" id="drill" aria-live="polite"></section>
 
-<section class="panel"><div class="head"><h2>Three countries side by side</h2><span class="note">Same season and week as above. Tap a row to switch country.</span></div><div class="scroll" id="cmp"></div></section>
+<section class="panel" id="soil"><div class="head"><h2>Is the ground dry?</h2><span class="note">Pilot area, NASA soil moisture</span></div><p class="note" style="margin-bottom:8px" id="soilsum"></p><div id="soilsvg"></div><div id="soilhot"></div><p class="note">Red line is the selected season, grey lines are the other seasons, dashed is the 5 season average. Root zone soil wetness (0 is bone dry, 1 is saturated) from NASA POWER MERRA-2, the grid cell nearest the pilot farms (about 50 km wide, so it shows the regional trend, not one field). Hot days are days with a max of 32°C or more in that cell. Only 5 seasons are loaded, so the average is a 5 season average. This is context for the alerts and does not change their score yet.</p></section>
+<section class="panel" id="evid"><div class="head"><h2>Do the alerts match real harvests?</h2><span class="note">Pilot point, 30 seasons</span></div><p class="note" style="margin-bottom:8px">Each dot is one season from 1995/96 to 2024/25. Seasons with more alert weeks had lower soy yields across Argentina. <b id="evr"></b></p><div id="evsvg"></div><p class="note">Alert weeks count weeks with a 4 week rain deficit over 30%, or 3 or more hot days at the growth stage. Yield is Argentina national soy yield compared with its long term trend. This stands in for loan defaults, which we do not have, and one weather point stands in for the whole country.</p></section>
+<details class="panel more" id="more"><summary>More detail for analysts: warning time and assumptions</summary>
+<div id="cmp" hidden></div>
 
 <section class="panel"><div class="head"><h2>Warning time</h2><span class="note">Loans at medium or high stress, week by week</span></div><div id="tl"></div>
 <p class="note" id="tlnote" style="margin-top:8px"></p></section>
@@ -131,6 +150,7 @@ a{color:var(--green)}
 <div class="scroll" id="assume"></div>
 <p class="note" style="margin-top:10px">Sources: <a href="https://millingmea.com/argentina-set-for-record-wheat-corn-yields-in-2025-26/">Argentina wheat, corn and soy output and area</a> · <a href="https://siip.produccion.gob.bo/noticias/files/2024-48069-Boletin-Soya-2024.pdf">Bolivia soy yield bulletin</a> · <a href="https://www.larepublica.co/economia/cada-vez-se-siembra-mas-arroz-pero-los-precios-por-tonelada-disminuyen-553-000-4181170">Colombia rice price and yield</a>. Prices marked placeholder are rough starting points, not market quotes.</p>
 </details></section>
+</details>
 </div>
 
 <script>
@@ -238,7 +258,7 @@ function applySat(rows){var by={},n=0;rows.forEach(function(r){var f=r.field_id;
 var HDMIN=3,HDWK=1;
 var S={reg:'all',country:'Argentina',sc:'dry',week:16,crop:'all',lvl:'all',sel:null,timer:null};
 function lvl(s){return s>=.6?'high':s>=.3?'med':'low'}
-var LB={high:'High',med:'Medium',low:'Low'};
+var LB={high:'Act now',med:'Watch',low:'On track'};
 function fmt(n){return n>=1e6?'$'+(n/1e6).toFixed(2)+'M':n>=1e4?'$'+Math.round(n/1e3)+'K':n>=1e3?'$'+(n/1e3).toFixed(1)+'K':'$'+Math.round(n)}
 function wlab(w){return 'Week '+w+' · '+MONTHS[Math.min(7,Math.floor((w-1)/4))]}
 function firstAlert(L,k){for(var w=0;w<NW;w++){if(L.score[k][w]>=.3)return w+1}return null}
@@ -250,7 +270,7 @@ function fin(L,k,w){
 function reason(L,k,w){var i=w-1,p=[],pct=L.rp[k][i],z=L.z[k][i];
  if(pct<-30)p.push('rain is '+Math.round(-pct)+'% below normal over 4 weeks');
  if(pct>60)p.push('rain is '+Math.round(pct)+'% above normal over 4 weeks, flood risk');
- if(z<-1)p.push('greenness is '+(-z).toFixed(1)+' deviations below this field’s own history');
+ if(z<-1)p.push('crop greenness is unusually low for this field');
  if(k==='real'&&L.hd&&L.hd[i]>0){var g=stageOf(w);p.push(L.hd[i]+' hot day'+(L.hd[i]>1?'s':'')+' above '+g[4]+'°C at the '+g[2].toLowerCase()+' stage (peak '+L.hmx[i].toFixed(1)+'°C)')}
  if(!p.length)return 'On track for the season';
  var t=p.join(' and ');return t.charAt(0).toUpperCase()+t.slice(1)}
@@ -258,7 +278,7 @@ function pool(){return loans[S.country].filter(function(L){return (S.crop==='all
 function visible(L){
  if(S.crop!=='all'&&L.crop!==S.crop)return false;if(S.reg!=='all'&&L.reg!==S.reg)return false;
  var s=L.score[S.sc][S.week-1];
- if(S.lvl==='stress')return s>=.3;if(S.lvl==='high')return s>=.6;if(S.lvl==='gap')return s>=.3&&!L.insured;
+ if(S.lvl==='stress')return s>=.3;if(S.lvl==='high')return s>=.6;if(S.lvl==='watch')return s>=.3&&s<.6;if(S.lvl==='ok')return s<.3;if(S.lvl==='gap')return s>=.3&&!L.insured;
  if(S.lvl==='short')return fin(L,S.sc,S.week).cover<1;return true}
 function $(id){return document.getElementById(id)}
 function sum(a,f){return a.reduce(function(t,x){return t+f(x)},0)}
@@ -273,12 +293,12 @@ function renderTiles(){
  F.forEach(function(f){av+=Math.max(0,f.ev-COST*f.v0)});
  var cov=due?av/due:0;
  $('tiles').innerHTML=
-  '<div class="tile'+(st.length?' hot':'')+'"><span class="k">Loans under stress</span><span class="v">'+st.length+'</span><span class="s">of '+all.length+' loans, '+fmt(lent)+' lent</span></div>'+
-  '<div class="tile"><span class="k">Crop value, normal climate</span><span class="v">'+fmt(v0)+'</span><span class="s">hectares × yield × price</span></div>'+
-  '<div class="tile'+(chg<-5?' hot':'')+'"><span class="k">Crop value this season</span><span class="v">'+fmt(ev)+'</span><span class="s">'+(chg===0?'Same as normal':Math.abs(chg)+'% '+(chg<0?'below':'above')+' normal')+'</span></div>'+
-  '<div class="tile'+(sh>0?' hot':'')+'"><span class="k">Repayment shortfall</span><span class="v">'+fmt(sh)+'</span><span class="s">'+(due?Math.round(sh/due*100):0)+'% of '+fmt(due)+' due, '+nsh+' loans short</span></div>'+
-  '<div class="tile gap"><span class="k">Insurance gap</span><span class="v">'+fmt(un)+'</span><span class="s">stressed loans with no cover</span></div>'+
-  '<div class="tile"><span class="k">Repayment cover</span><span class="v">'+cov.toFixed(1)+'x</span><span class="s">income after costs ÷ loan due</span></div>'}
+  '<div class="tile'+(st.length?' hot':'')+'"><span class="k">Loans at risk</span><span class="v">'+st.length+'</span><span class="s">of '+all.length+' loans, '+fmt(lent)+' lent</span></div>'+
+  '<div class="tile"><span class="k">Expected harvest value</span><span class="v">'+fmt(v0)+'</span><span class="s">in a normal season</span></div>'+
+  '<div class="tile'+(chg<-5?' hot':'')+'"><span class="k">Harvest value now</span><span class="v">'+fmt(ev)+'</span><span class="s">'+(chg===0?'Same as normal':Math.abs(chg)+'% '+(chg<0?'below':'above')+' normal')+'</span></div>'+
+  '<div class="tile'+(sh>0?' hot':'')+'"><span class="k">Could go unpaid</span><span class="v">'+fmt(sh)+'</span><span class="s">'+(due?Math.round(sh/due*100):0)+'% of '+fmt(due)+' due, '+nsh+' loans</span></div>'+
+  '<div class="tile gap"><span class="k">Insurance gap</span><span class="v">'+fmt(un)+'</span><span class="s">at risk loans with no Suyana cover</span></div>'+
+  '<div class="tile"><span class="k">Can the harvest repay?</span><span class="v">'+cov.toFixed(1)+'x</span><span class="s">1.0x or more means yes</span></div>'}
 
 function renderMap(){
  var C=CT[S.country],b=C.box,zoom=false,W=420,H=Math.round(W*(b[2]-b[3])/(b[1]-b[0]));H=clamp(H,300,480);var out='';
@@ -289,9 +309,22 @@ function renderMap(){
  arr.forEach(function(L){
   var s=L.score[S.sc][S.week-1],l=lvl(s),on=visible(L),col='var(--'+l+')',f=fin(L,S.sc,S.week),r=3.5+Math.sqrt(f.v0/1000)*.5;
   out+='<circle data-id="'+L.id+'" cx="'+X(L.lon).toFixed(1)+'" cy="'+Y(L.lat).toFixed(1)+'" r="'+Math.min(r,16).toFixed(1)+'" fill="'+col+'" fill-opacity="'+(on?.75:.12)+'" stroke="'+(S.sel===L.id?'var(--fg)':col)+'" stroke-width="'+(S.sel===L.id?2.5:1)+'" style="cursor:pointer"><title>Loan '+L.id+', '+LB[l]+' stress</title></circle>'});
- $('map').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Map of loan locations colored by stress level"><rect x="0" y="0" width="'+W+'" height="'+H+'" rx="10" fill="var(--band)" fill-opacity=".5"/>'+out+'</svg>';
- $('mapnote').textContent=zoom?'Zoomed to '+S.reg+'. Tap a circle to open the loan':'Tap a circle to open the loan'}
+ $('svgmap').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Map of loan locations colored by stress level"><rect x="0" y="0" width="'+W+'" height="'+H+'" rx="10" fill="var(--band)" fill-opacity=".5"/>'+out+'</svg>';
+ renderLMap(arr,b,zoom);$('mapnote').textContent=zoom?'Zoomed to '+S.reg+'. Tap a circle to open the loan':'Tap a circle to open the loan'}
 
+var LM=null,LG=null,tileOk=0,tileBad=0;
+function renderLMap(arr,b,zoom){var el=$('lmap');if(!window.L||tileBad>3&&!tileOk){el.hidden=true;$('svgmap').hidden=false;return}
+ el.hidden=false;$('svgmap').hidden=true;
+ if(!LM){try{LM=L.map(el,{scrollWheelZoom:false,zoomControl:true,attributionControl:true});
+  var osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'&copy; OpenStreetMap'}),
+  sat=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18,attribution:'Imagery &copy; Esri'});
+  [osm,sat].forEach(function(t){t.on('tileload',function(){tileOk++});t.on('tileerror',function(){tileBad++;if(tileBad>3&&!tileOk){$('lmap').hidden=true;$('svgmap').hidden=false}})});
+  osm.addTo(LM);L.control.layers({'Map':osm,'Satellite':sat},null,{position:'topright'}).addTo(LM);LG=L.layerGroup().addTo(LM);}catch(e){el.hidden=true;$('svgmap').hidden=false;return}}
+ LM.invalidateSize();LG.clearLayers();var pts=arr.filter(visible).map(function(q){return [q.lat,q.lon]});
+ var key=S.country+'|'+S.reg;if(LM._key!==key||!LM._fit){LM._key=key;LM._fit=1;if(zoom&&pts.length>1)LM.fitBounds(pts,{padding:[30,30],maxZoom:12,animate:false});else LM.fitBounds([[b[3],b[0]],[b[2],b[1]]],{animate:false})}
+ arr.forEach(function(L2){var s=L2.score[S.sc][S.week-1],l=lvl(s),on=visible(L2),f=fin(L2,S.sc,S.week),r=Math.min(5+Math.sqrt(f.v0/1000)*.5,15),col=getComputedStyle(document.documentElement).getPropertyValue('--'+l).trim();
+  var m=L.circleMarker([L2.lat,L2.lon],{radius:r,color:S.sel===L2.id?'#000':col,weight:S.sel===L2.id?3:1.5,fillColor:col,fillOpacity:on?.75:.15,opacity:on?1:.3}).bindTooltip('Loan '+L2.id+', '+LB[l]);
+  m.on('click',function(){S.sel=L2.id;render()});m.addTo(LG)})}
 function renderList(){
  var k=S.sc,w=S.week,rows=loans[S.country].filter(visible).sort(function(a,b){return b.score[k][w-1]-a.score[k][w-1]});
  $('listnote').textContent=rows.length+' loans shown';
@@ -311,12 +344,12 @@ Colombia:[['ICA','Plant health and field advice'],['AGROSAVIA','Agricultural res
 var STG=[[1,6,'Vegetative','Heat above 32°C slows leaf growth',32],[7,10,'Flowering','Sustained heat above 35°C causes flower drop',35],[11,16,'Pod set','Heat above 33°C, worse with dry soil, causes pod loss',33.5],[17,24,'Seed fill','Daytime heat above 32°C cuts seed number and weight, the highest risk window',32],[25,30,'Ripening','Little heat risk, protect from late rain',99]];
 function advice(L,k,w){var i=w-1,pct=L.rp[k][i],z=L.z[k][i],sc=L.score[k][i],a=[],m,st=null;
  STG.forEach(function(g){if(w>=g[0]&&w<=g[1])st=g});
- if(pct<-30){a.push(['Drought','Add or prioritise irrigation for this field','Rice, corn, wheat and irrigated soy first']);a.push(['Drought','Mulch or keep stubble cover to hold soil moisture','Cheap and works on large fields']);m='Dry weather is affecting fields in your area.'}
+ if(pct<-30){a.push(['Drought','Add or prioritise irrigation for this field','Most useful where irrigation is available']);a.push(['Drought','Mulch or keep stubble cover to hold soil moisture','Cheap and works on large fields']);m='Dry weather is affecting fields in your area.'}
  else if(pct>60){a.push(['Excess rain','Pause irrigation and open drains','Avoid waterlogging']);a.push(['Excess rain','Watch for disease and plan late sowing or replanting','Coffee rust, rice blast']);m='Heavy rain is affecting fields in your area.'}
- else if(sc>=.3){a.push(['Stress','Field check by an agronomist','Greenness is below the field’s own history']);m='Crops in your area are growing below normal.'}
+ else if(sc>=.3){a.push(['Stress','Field check by an agronomist','Crop greenness is below this field’s normal']);m='Crops in your area are growing below normal.'}
  if(k==='real'&&L.hd&&L.hd[i]>0){a.push(['Heat','Irrigate lightly in the afternoon to cool the canopy','Most useful while flowering and pod set']);a.push(['Heat','Mulch or stubble cover, windbreak tree rows','Cuts soil and leaf temperature']);m=m||'Hot weather is affecting fields in your area.'}
  if(L.crop==='Soy'&&st)a.push(['Heat watch',st[2]+' stage: '+st[3],'Shade is not practical on big soy fields, so use mulch, windbreak tree rows and irrigation']);
- if(sc>=.3&&!L.insured)a.push(['Cover','Insure or restructure before the next payment','Suyana can offer cover; the lender can move a due date']);
+ if(sc>=.3&&!L.insured)a.push(['Cover','Ask Suyana for cover on this loan, or agree a new payment date','Suyana provides the insurance; the bank sets the payment terms']);
  if(!a.length)return '<p class="note">No action needed. Keep watching: the radar will suggest actions when an alert starts.</p>';
  var r=(RES[L.country]||[]).map(function(x){return '<li><b>'+x[0]+'</b> '+x[1]+'</li>'}).join('');
  return '<div class="act"><h3>Recommended actions</h3><ul class="al">'+a.map(function(x){return '<li><span class="tag">'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></li>'}).join('')+'</ul>'+
@@ -340,16 +373,15 @@ function renderDrill(){
  var svg='<svg viewBox="0 0 '+cw+' '+ch+'" role="img" aria-label="Greenness this season against the field’s own history, by week">'+g+
   '<path d="'+up+lo+'Z" fill="var(--band)" stroke="none"/><path d="'+mean+'" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>'+mk+
   '<path d="'+cur+'" fill="none" stroke="var(--'+l+')" stroke-width="3" stroke-linejoin="round"/><circle cx="'+X(w)+'" cy="'+Y(L.ndvi[k][w-1])+'" r="5" fill="var(--'+l+')" stroke="var(--surface)" stroke-width="2"/></svg>';
- var warn=fa&&fa<=w?'Flagged in week '+fa+'. The lender would learn at the first payment in week '+PAY+', so this is '+(PAY-fa)+' weeks of warning.':'No alert yet at '+wlab(w).toLowerCase()+'.';
- var cov=L.insured?'Covered by an existing policy.':(s>=.3?'No cover on this loan. Suyana can offer a policy before the next stress window.':'No cover on this loan.');
+ var warn=fa&&fa<=w?'Flagged in week '+fa+', '+(PAY-fa)+' weeks before the first payment (week '+PAY+').':'No alert yet at '+wlab(w).toLowerCase()+'.';
+ var cov=L.insured?'Covered by a Suyana policy.':(s>=.3?'No Suyana cover on this loan. Ask Suyana for a quote before the next stress window.':'No Suyana cover on this loan.');
  var c=CT[L.country].crops[L.crop];
- $('drill').innerHTML='<div class="head"><h2>Loan '+L.id+' · '+L.name+'</h2><span class="pill '+l+'">'+LB[l]+' stress</span></div>'+
-  '<div class="facts"><div><b>Crop and place</b><span>'+L.crop+', '+L.ha+' ha, '+L.reg+', '+L.country+'</span></div><div><b>Loan and amount due</b><span>'+fmt(L.amount)+' → '+fmt(f.due)+'</span></div>'+'<div><b>Dates</b><span>Sown '+L.sown+', first payment '+L.first+', maturity '+L.mat+'</span></div>'+'<div><b>Lender and terms</b><span>'+L.lender+', '+L.rate+'%, '+L.sched.toLowerCase()+', '+L.coll.toLowerCase()+'</span></div>'+
+ $('drill').innerHTML='<div class="head"><h2>Loan '+L.id+' · '+L.name+'</h2><span class="pill '+l+'">'+LB[l]+'</span></div>'+
+  '<div class="alert '+l+'"><b>'+reason(L,k,w)+'.</b> '+warn+'</div>'+'<div class="cover">'+cov+'</div>'+'<p class="next"><b>Suggested next step:</b> '+nextAct(L,k,w).bank+'</p><p class="next"><b>Message for the borrower:</b> '+nextAct(L,k,w).msg+'</p>'+'<h3 class="sec">Loan details</h3>'+'<div class="facts"><div><b>Crop and place</b><span>'+L.crop+', '+L.ha+' ha, '+L.reg+', '+L.country+'</span></div><div><b>Loan and amount due</b><span>'+fmt(L.amount)+' → '+fmt(f.due)+'</span></div>'+'<div><b>Dates</b><span>Sown '+L.sown+', first payment '+L.first+', maturity '+L.mat+'</span></div>'+'<div><b>Lender and terms</b><span>'+L.lender+', '+L.rate+'%, '+L.sched.toLowerCase()+', '+L.coll.toLowerCase()+'</span></div>'+
   '<div><b>Crop value, normal climate</b><span>'+fmt(f.v0)+' ('+c.y+' t/ha at $'+c.p+'/t)</span></div><div><b>Crop value this season</b><span>'+fmt(f.ev)+' ('+Math.round(f.loss*100)+'% yield loss expected)</span></div>'+
-  '<div><b>Repayment cover</b><span>'+f.cover.toFixed(1)+'x</span></div><div><b>Repayment risk</b><span class="pill '+f.risk+'" style="display:inline-block">'+f.rl+(f.short>0?', short '+fmt(f.short):'')+'</span></div></div>'+
-  '<div class="alert '+l+'"><b>'+reason(L,k,w)+'.</b> '+warn+'</div>'+svg+
+  '<div><b>Repayment cover</b><span>'+f.cover.toFixed(1)+'x</span></div><div><b>Repayment risk</b><span class="pill '+f.risk+'" style="display:inline-block">'+f.rl+(f.short>0?', short '+fmt(f.short):'')+'</span></div></div>'+'<h3 class="sec">Crop greenness through the season (simulated)</h3>'+svg+
   '<div class="lg"><span><i class="dot" style="background:var(--band);border:1px solid var(--line)"></i>Range in the last 8 seasons</span><span>Dashed line: average</span><span><i class="dot" style="background:var(--'+l+')"></i>This season (greenness index by week)</span></div>'+
-  '<div class="cover">'+cov+'</div>'+advice(L,k,w)+'<p class="note">Keywords: '+L.kw+'. Initial risk grade '+L.grade+'.</p>'}
+  '<p class="note">Keywords: '+L.kw+'. Initial risk grade '+L.grade+'.</p>'}
 
 function renderCmp(){
  var rows=Object.keys(CT).map(function(cn){
@@ -391,7 +423,7 @@ function render(){
  $('wklabel').textContent=wlab(S.week);$('week').value=S.week;
  Array.prototype.forEach.call($('scen').children,function(b){b.setAttribute('aria-pressed',String(b.dataset.k===S.sc))});
  Array.prototype.forEach.call($('ctry').children,function(b){b.setAttribute('aria-pressed',String(b.dataset.k===S.country))});
- renderTop();renderTiles();renderMap();renderList();renderDrill();renderCmp();renderTL()}
+ renderAsof();renderTop();renderAlerts();renderTiles();renderMap();renderList();renderDrill();renderCmp();renderTL();renderSoil()}
 
 $('scen').innerHTML=SCEN.map(function(s){return '<button type="button" data-k="'+s[0]+'" aria-pressed="false">'+s[1]+'</button>'}).join('');
 $('ctry').innerHTML=Object.keys(CT).map(function(c){return '<button type="button" data-k="'+c+'" aria-pressed="false">'+c+'</button>'}).join('');
@@ -428,11 +460,79 @@ $('play').addEventListener('click',function(){
  if(S.week>=NW)S.week=1;this.textContent='Pause';var btn=this;
  S.timer=setInterval(function(){if(S.week>=NW){clearInterval(S.timer);S.timer=null;btn.textContent='Play';return}S.week++;render()},450);render()});
 
+
+function asofText(){if(S.sc==='real'){var d=new Date(Date.UTC(BASEASON,10,1)+(7*S.week-1)*864e5);return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'})}return 'Week '+S.week+' of the season (simulated)'}
+var EV={"y":[1995,1996,1997,1998,1999,2000,2001,2002,2003,2004,2005,2006,2007,2008,2009,2010,2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024],"a":[11,9,3,4,11,3,8,5,11,7,7,1,12,11,0,14,10,12,4,8,5,8,21,4,11,10,2,18,6,6],"v":[-11.1,-27.9,12.0,0.9,-4.5,4.5,6.2,12.5,-12.1,7.9,5.2,15.9,9.3,-28.8,11.6,-1.1,-14.0,-4.7,3.1,17.3,10.7,15.6,-16.1,20.0,4.4,-0.3,-2.4,-38.8,2.7,1.5],"r":-0.63};
+var SMW={"2021":{"s":[0.529,0.514,0.526,0.514,0.517,0.5,0.494,0.483,0.484,0.497,0.481,0.524,0.54,0.527,0.516,0.499,0.519,0.55,0.574],"t":[24.7,30.2,29.8,31.8,29.5,31.6,33.0,37.2,38.2,34.8,40.9,30.7,30.0,29.3,28.4,33.6,30.2,28.1,24.8],"h":[0,1,2,5,1,3,4,7,7,6,7,4,2,2,1,5,2,0,0]},"2022":{"s":[0.499,0.504,0.519,0.491,0.507,0.491,0.484,0.483,0.481,0.479,0.479,0.509,0.531,0.501,0.481,0.486,0.48,0.473,0.47],"t":[29.2,28.2,32.4,36.8,33.2,38.3,33.2,33.4,35.2,37.4,34.9,36.2,31.9,33.0,37.5,28.7,34.1,39.3,38.8],"h":[0,1,4,6,4,7,5,5,6,7,4,6,3,4,6,3,6,7,7]},"2023":{"s":[0.576,0.543,0.523,0.501,0.514,0.513,0.567,0.567,0.526,0.511,0.526,0.531,0.493,0.48,0.523,0.523,0.526,0.541,0.541],"t":[23.5,26.0,28.7,34.0,29.5,31.4,28.4,29.0,30.5,32.7,30.9,30.8,35.6,39.6,32.4,30.7,29.5,28.1,30.7],"h":[1,0,1,6,2,3,1,0,1,5,4,2,7,7,3,3,2,0,2]},"2024":{"s":[0.553,0.539,0.533,0.524,0.546,0.536,0.507,0.519,0.497,0.483,0.48,0.497,0.516,0.526,0.556,0.539,0.551,0.629,0.6],"t":[27.6,29.1,28.9,30.7,27.8,29.0,31.7,28.8,33.7,35.7,38.0,34.3,33.0,33.7,30.4,29.6,33.6,29.9,23.5],"h":[1,1,2,3,1,2,4,1,5,7,7,5,6,4,2,1,4,1,1]},"2025":{"s":[0.593,0.593,0.596,0.57,0.607,0.557,0.567,0.58,0.533,0.534,0.536,0.529,0.497,0.507,0.513,0.533,0.513,0.511,0.513],"t":[23.7,26.5,26.8,29.7,28.0,28.9,30.0,30.4,33.7,27.1,32.5,31.5,35.8,33.1,30.9,30.4,30.4,29.5,28.7],"h":[0,0,0,3,2,1,3,2,5,1,5,4,7,5,2,2,1,2,0]}};
+function renderSoil(){var N=19,W=640,H=250,pl=40,pr=12,pt=12,pb=34,Y0=BASEASON,ys=[2021,2022,2023,2024,2025],mn=.44,mx=.62;
+ function X(i){return pl+i/(N-1)*(W-pl-pr)}function Y(v){return pt+(mx-v)/(mx-mn)*(H-pt-pb)}
+ function path(a){var d='',i;for(i=0;i<N;i++){if(a[i]==null)continue;d+=(d?'L':'M')+X(i).toFixed(1)+' '+Y(a[i]).toFixed(1)}return d}
+ var avg=[],i,g='';for(i=0;i<N;i++){var t=0,c=0;ys.forEach(function(y){var v=SMW[y].s[i];if(v!=null){t+=v;c++}});avg.push(c?t/c:null)}
+ [.45,.50,.55,.60].forEach(function(v){g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="var(--line)"/><text class="ax" x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v.toFixed(2)+'</text>'});
+ for(i=0;i<N;i+=3){g+='<text class="ax" x="'+X(i)+'" y="'+(H-16)+'" text-anchor="middle">'+(i+1)+'</text>'}
+ g+='<text class="ax" x="'+((pl+W-pr)/2)+'" y="'+(H-2)+'" text-anchor="middle">Season week (week 1 starts Nov 1)</text>';
+ ys.forEach(function(y){if(y!==Y0)g+='<path d="'+path(SMW[y].s)+'" fill="none" stroke="var(--muted)" stroke-opacity=".45" stroke-width="1.4"/>'});
+ g+='<path d="'+path(avg)+'" fill="none" stroke="var(--fg)" stroke-width="1.6" stroke-dasharray="5 4"/>';
+ g+='<path d="'+path(SMW[Y0].s)+'" fill="none" stroke="var(--high)" stroke-width="3"/>';
+ if(S.sc==='real'&&S.week<=N)g+='<line x1="'+X(S.week-1)+'" x2="'+X(S.week-1)+'" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--green)" stroke-width="1.5"/><circle cx="'+X(S.week-1)+'" cy="'+Y(SMW[Y0].s[S.week-1])+'" r="5" fill="var(--high)" stroke="var(--surface)" stroke-width="2"/>';
+ g+='<text x="'+(W-pr)+'" y="'+(pt+10)+'" text-anchor="end" class="ax" fill="var(--high)">'+Y0+'/'+String(Y0+1).slice(2)+'</text>';
+ $('soilsvg').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Weekly root zone soil wetness, selected season against other seasons" style="width:100%;height:auto">'+g+'</svg>';
+ var hh=SMW[Y0].h,hm=Math.max.apply(null,ys.map(function(y){return Math.max.apply(null,SMW[y].h)})),h2=60,b='',bw=(W-pl-pr)/N;
+ for(i=0;i<N;i++){var bh=hh[i]/7*(h2-22);b+='<rect x="'+(X(i)-bw*.32)+'" y="'+(h2-16-bh)+'" width="'+(bw*.64)+'" height="'+Math.max(bh,0)+'" rx="2" fill="var(--med)" fill-opacity="'+(hh[i]?'.9':'.2')+'"/>'}
+ b+='<text class="ax" x="'+(pl-6)+'" y="'+(h2-18)+'" text-anchor="end">0</text><text class="ax" x="'+(pl-6)+'" y="12" text-anchor="end">7</text><text class="ax" x="'+pl+'" y="'+(h2+2)+'">Hot days per week (32°C or more)</text>';
+ $('soilhot').innerHTML='<svg viewBox="0 0 '+W+' '+(h2+8)+'" role="img" aria-label="Hot days per week" style="width:100%;height:auto">'+b+'</svg>';
+ var m=function(a){return a.reduce(function(x,y){return x+y},0)/a.length},mine=m(SMW[Y0].s),others=m(ys.filter(function(y){return y!==Y0}).map(function(y){return m(SMW[y].s)})),dp=(mine/others-1)*100,th=SMW[Y0].h.reduce(function(x,y){return x+y},0),lo=0;
+ SMW[Y0].s.forEach(function(v,j){if(v<SMW[Y0].s[lo])lo=j});
+ $('soilsum').innerHTML='<b>'+Y0+'/'+String(Y0+1).slice(2)+':</b> average soil wetness '+mine.toFixed(2)+', which is '+(dp<0?Math.abs(dp).toFixed(0)+'% drier':dp.toFixed(0)+'% wetter')+' than the other four seasons ('+others.toFixed(2)+'). Driest in week '+(lo+1)+' ('+SMW[Y0].s[lo].toFixed(2)+'). '+th+' hot days in weeks 1 to '+N+'.'}
+function renderEv(){var W=640,H=300,pl=44,pr=14,pt=14,pb=40,n=EV.y.length,mxA=Math.max.apply(null,EV.a)+1,mn=Math.min.apply(null,EV.v),mxv=Math.max.apply(null,EV.v);mn=Math.floor(mn/10)*10-5;mxv=Math.ceil(mxv/10)*10+5;
+ function X(a){return pl+a/mxA*(W-pl-pr)}function Y(v){return pt+(mxv-v)/(mxv-mn)*(H-pt-pb)}
+ var g='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" stroke="var(--line)"/>',i;
+ [-40,-20,0,20].forEach(function(v){if(v>=mn&&v<=mxv)g+='<text class="ax" x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end">'+v+'%</text>'});
+ for(i=0;i<=mxA;i+=5)g+='<text class="ax" x="'+X(i)+'" y="'+(H-22)+'" text-anchor="middle">'+i+'</text>';
+ g+='<text class="ax" x="'+((pl+W-pr)/2)+'" y="'+(H-4)+'" text-anchor="middle">Alert weeks in the season</text>';
+ var mA=EV.a.reduce(function(a,b){return a+b},0)/n,mV=EV.v.reduce(function(a,b){return a+b},0)/n,sl=0,sx=0;EV.a.forEach(function(a,k){sl+=(a-mA)*(EV.v[k]-mV);sx+=(a-mA)*(a-mA)});sl/=sx;var ic=mV-sl*mA;
+ g+='<line x1="'+X(0)+'" y1="'+Y(ic)+'" x2="'+X(mxA)+'" y2="'+Y(ic+sl*mxA)+'" stroke="var(--muted)" stroke-dasharray="4 4"/>';
+ var lab={2022:'2022/23',2008:'2008/09',2017:'2017/18',1996:'1996/97'};
+ EV.y.forEach(function(y,k){var hot=y===2022,cx=X(EV.a[k]),cy=Y(EV.v[k]);g+='<circle cx="'+cx+'" cy="'+cy+'" r="'+(hot?7:5)+'" fill="var(--'+(hot?'high':'med')+')" fill-opacity=".8"><title>'+y+'/'+String(y+1).slice(2)+': '+EV.a[k]+' alert weeks, yield '+EV.v[k]+'% vs trend</title></circle>';if(lab[y]){var le=cx>W-90;g+='<text class="ax" x="'+(le?cx-9:cx+9)+'" y="'+(cy+4)+'" text-anchor="'+(le?'end':'start')+'">'+lab[y]+'</text>'}});
+ $('evsvg').innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Alert weeks against soy yield by season">'+g+'</svg>';
+ $('evr').textContent='Correlation '+String(EV.r).replace('-','−')+' (negative means more alerts, lower yield).'}
+function renderAsof(){$('asof').textContent=asofText();$('adate').textContent=asofText()}
+$('bDemo').addEventListener('click',function(){var d=$('demo');d.hidden=!d.hidden;this.textContent=d.hidden?'Demo controls':'Hide demo controls'});
 function renderTop(){var k=S.sc,w=S.week,all=pool(),st=all.filter(function(L){return L.score[k][w-1]>=.3}),F=all.map(function(L){return fin(L,k,w)}),sh=sum(F,function(f){return f.short}),due=sum(F,function(f){return f.due}),fa=null;
  all.forEach(function(L){var a=firstAlert(L,k);if(a&&(fa==null||a<fa))fa=a});var el=$('top');
  if(!st.length){el.className='topcard ok';el.innerHTML='<b>No loans at risk in this view.</b> Move the week slider forward or pick another season to see the radar react.';return}
  el.className='topcard';el.innerHTML='<b>'+st.length+' of '+all.length+' loans at risk.</b> About <b>'+fmt(sh)+'</b> of '+fmt(due)+' due could go unpaid.'+(fa?' The radar first alerts in <b>week '+fa+'</b>, '+(PAY-fa)+' weeks before the first payment in week '+PAY+'.':'')}
 $('bHero').addEventListener('click',function(){$('bBA').click();var t=$('top');if(t&&t.scrollIntoView)t.scrollIntoView({behavior:'smooth',block:'start'})});
-fillCrops();renderAssume();render();
+
+function soilDry(w){if(w<1||w>19||!SMW[BASEASON])return false;var ys=[2021,2022,2023,2024,2025].filter(function(y){return y!==BASEASON}),t=0;ys.forEach(function(y){t+=SMW[y].s[w-1]});return SMW[BASEASON].s[w-1]<=t/ys.length-.02}
+function nextAct(L,k,w){var i=w-1,g=stageOf(w),st=g?g[2].toLowerCase():'this',heat=k==='real'&&L.hd&&L.hd[i]>0,dry=k==='real'&&L.reg==='Buenos Aires'&&soilDry(w),rain=L.rp[k][i]<-30,b,m;
+ if(heat&&(dry||rain)){b='Hot and dry together at the '+st+' stage. Call the borrower this week, ask for the expected harvest and agree payment timing before the due date';m='Hot, dry weather is hitting your crop at the '+st+' stage. If you can, irrigate at dawn or in the evening and add mulch or shade. Please tell us early if the harvest looks short so we can plan payments together.'}
+ else if(heat){b='Heat at the '+st+' stage. Call the borrower this week and share the heat tips';m='Hot days are hitting your crop at the '+st+' stage. If you can, irrigate at dawn or in the evening and add mulch or shade. Your local agriculture office can help with advice.'}
+ else if(rain||dry){b='Dry spell. Ask about irrigation access and the expected harvest, and open a talk on payment timing';m='Dry weather is building. Save water for the critical stages, keep crop stubble on the soil to hold moisture, and tell us early if the harvest looks short.'}
+ else if(L.rp[k][i]>60){b='Too much rain. Ask about drainage and disease checks, and agree payment timing early';m='Heavy rain is coming in. Clear drains, check for fungus and disease, and tell us early if fields are flooded.'}
+ else{b='Send an agronomist to check the field';m='We saw a change in your crop conditions. Please call us so we can check how the field is doing.'}
+ b+=L.insured?'. Confirm the Suyana policy is in force':'. Offer a Suyana quote';b+='. Log the alert date and the call.';
+ return{bank:b,msg:m}}
+function alertItems(){var k=S.sc,w=S.week,i=w-1;return pool().filter(function(L){return L.score[k][i]>=.3}).map(function(L){var s=L.score[k][i],p=i?L.score[k][i-1]:0,tr=p<.3?'New':s>p+.05?'Getting worse':s<p-.05?'Improving':'Ongoing';return{L:L,s:s,tr:tr,why:reason(L,k,w),act:nextAct(L,k,w).bank,msg:nextAct(L,k,w).msg}}).sort(function(a,b){return b.s-a.s})}
+function renderAlerts(){var k=S.sc,w=S.week,all=pool(),hi=0,me=0,lo=0;all.forEach(function(L){var s=L.score[k][w-1];if(s>=.6)hi++;else if(s>=.3)me++;else lo++});
+ $('achips').innerHTML='<button type="button" class="chip high" data-lvl="high">Act now: '+hi+'</button><button type="button" class="chip med" data-lvl="watch">Watch: '+me+'</button><button type="button" class="chip low" data-lvl="ok">On track: '+lo+'</button><button type="button" class="chip all" data-lvl="all">Show all</button>';
+ var it=alertItems(),gs=[],idx={};
+ it.forEach(function(x){var key=(x.s>=.6?'h':'m')+'|'+x.tr+'|'+x.why+'|'+x.L.crop+'|'+x.L.reg+'|'+x.L.insured;if(idx[key]==null){idx[key]=gs.length;gs.push({x:x,l:[]})}gs[idx[key]].l.push(x)});
+ $('afeed').innerHTML=gs.length?gs.slice(0,6).map(function(g){var x=g.x,h=x.s>=.6,n=g.l.length,due=sum(g.l,function(y){return fin(y.L,S.sc,S.week).due}),ids=g.l.slice(0,4).map(function(y){return y.L.id}).join(', ')+(n>4?' and '+(n-4)+' more':'');
+  return '<button type="button" class="arow" data-id="'+x.L.id+'"><span class="t" style="color:var(--'+(h?'high':'med')+')">'+(h?'Act now':'Watch')+' · '+x.tr+'</span><b>'+(n>1?n+' loans':'Loan '+x.L.id)+' · '+x.L.crop+', '+x.L.reg+' · '+fmt(due)+' due</b><small>'+x.why+'.</small><small><b>Do this:</b> '+x.act+'</small><small><b>Tell the borrower:</b> '+x.msg+'</small><small>'+ids+'</small></button>'}).join(''):'<p class="note">No alerts today. Every loan in this view is on track.</p>'}
+function digestText(){var it=alertItems(),h=it.filter(function(x){return x.s>=.6}).length;var t='SowSmart daily alerts, '+asofText()+'\nAct now: '+h+'. Watch: '+(it.length-h)+'.\n';it.forEach(function(x,n){t+='\n'+(n+1)+'. '+(x.s>=.6?'ACT NOW':'WATCH')+' ('+x.tr+') Loan '+x.L.id+', '+x.L.crop+', '+x.L.reg+'\n   '+x.why+'.\n   Do this: '+x.act+'\n   Message for the borrower: '+x.msg+'\n'});return t}
+$('bCopy').addEventListener('click',function(){var t=digestText(),b=this;function show(){var d=$('digest');d.textContent=t;d.hidden=false}
+ try{navigator.clipboard.writeText(t).then(function(){b.textContent='Copied';setTimeout(function(){b.textContent='Copy daily digest'},1800)},show)}catch(e){show()}});
+$('bCsv').addEventListener('click',function(){var rows=[['loan_id','borrower','country','region','crop','level','trend','why','do_this','message_for_borrower','amount_due_usd']];alertItems().forEach(function(x){rows.push([x.L.id,x.L.name,x.L.country,x.L.reg,x.L.crop,x.s>=.6?'Act now':'Watch',x.tr,x.why,x.act,x.msg,Math.round(fin(x.L,S.sc,S.week).due)])});
+ var csv=rows.map(function(r){return r.map(function(c){return '"'+String(c).replace(/"/g,'""')+'"'}).join(',')}).join('\n');
+ try{var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='sowsmart_alerts.csv';document.body.appendChild(a);a.click();a.remove()}catch(e){var d=$('digest');d.textContent=csv;d.hidden=false}});
+
+function subSummary(){var it=alertItems(),h=it.filter(function(x){return x.s>=.6}).length;return{n:h,w:it.length-h,subject:'SowSmart: '+h+' loan'+(h===1?'':'s')+' need action, '+(it.length-h)+' to watch',body:digestText()}}
+$('subPrev').addEventListener('click',function(){var m=subSummary(),box=$('mail'),to=$('subMail').value||'analyst@bank.com';box.hidden=false;box.innerHTML='<div class="sj">To: '+to+' · '+$('subTime').value+'</div><div class="sj">Subject: '+m.subject+'</div><pre></pre>';box.querySelector('pre').textContent=m.body});
+$('subSave').addEventListener('click',function(){var v={mail:$('subMail').value,lvl:$('subLvl').value,time:$('subTime').value};try{localStorage.setItem('sowsmartSub',JSON.stringify(v))}catch(e){}$('subNote').textContent='Saved for '+(v.mail||'your email')+' at '+v.time+'. Demo only: no email is sent yet.'});
+try{var sv=JSON.parse(localStorage.getItem('sowsmartSub')||'null');if(sv){$('subMail').value=sv.mail||'';$('subLvl').value=sv.lvl||'stress';$('subTime').value=sv.time||'08:00'}}catch(e){}
+$('achips').addEventListener('click',function(e){var b=e.target.closest('button');if(!b)return;S.lvl=b.dataset.lvl;$('lvl').value=S.lvl;render();var l=$('list');if(l&&l.scrollIntoView)l.scrollIntoView({behavior:'smooth',block:'start'})});
+$('afeed').addEventListener('click',pick);
+fillCrops();renderAssume();renderEv();render();$('bBA').click();
 })();
 </script>
