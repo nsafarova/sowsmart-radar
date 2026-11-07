@@ -4,7 +4,7 @@ SowSmart is a climate-risk dashboard for agricultural lenders, built for the **S
 
 ## Team and challenge
 
-- **Contributors** — Ansha Pathak, Katherine Book, Janhavi Beley and Nikki Safarova.
+- **Contributors** — [Ansha Pathak](https://www.linkedin.com/in/anshapathak11/), [Katherine Book](https://www.linkedin.com/in/katherine-book-4a19b3106/), [Janhavi Beley](https://www.linkedin.com/in/janhavibeley/) and [Nikki Safarova](https://www.linkedin.com/in/nssafarova/).
 - **Challenge sponsor** — [Suyana Climate Insurance](https://suyana.io/).
 - **Suyana challenge representatives** — Fernando Yu and Justin Muñoz.
 - **Event** — [MIT Energy & Climate Hack 2026](https://www.mitenergyhack.org/).
