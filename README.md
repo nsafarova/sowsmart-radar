@@ -7,7 +7,7 @@
 [![MIT Energy & Climate Hack 2026](https://img.shields.io/badge/MIT_Energy_%26_Climate_Hack-2026-8A1538?style=for-the-badge)](https://www.mitenergyhack.org/)
 [![Suyana Challenge](https://img.shields.io/badge/Suyana-Climate_Insurance-146C43?style=for-the-badge)](https://suyana.io/)
 
-[Dashboard source](index.html) 
+[Dashboard source](https://sowsmart-radar.vercel.app) 
 
 </div>
 
