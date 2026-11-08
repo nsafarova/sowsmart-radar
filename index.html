@@ -1006,17 +1006,20 @@ function lineSeg(vals, W, H, lo, hi) {
 /* Corrective pathway: rules from the lender pathway doc. Contract type (canje vs spot) is not in the dataset,
    so the restructuring branch is shown as pending rather than assumed. */
 function pathwayFor(l) {
-  if (l.outcome === 'paid' && !l.alertNow) return null;
+  const status = SNAP[l.id][snapIdx][1];
+  if (status === 'repaid') return null;
   const s = [];
   s.push({ t: 'Grower alert', k: 'alert', d: l.alertNow ? 'Jan–Mar ' + CLIM[l.cls].label.toLowerCase() + ' flag: send notice-of-loss template to grower app' : 'No climate alert; keep monitoring' });
+  if (l.alertNow && status === 'current') {
+    s.push({ t: 'Early contact', k: 'watch', d: 'Contact the grower now to offer a term extension or open a restructuring review before the loan becomes 30 days past due.' });
+  }
   if (l.ins) s.push({ t: 'Intercept insurance payout', k: 'ins', d: 'Cesión de derechos de póliza (' + l.ins_pct + '% cover) so the payout clears the loan first' });
   else s.push({ t: 'Regulatory check', k: 'reg', d: 'Confirm Certificado de Emergencia Agropecuaria status for the grower CUIT (eligibility to be confirmed by counsel)' });
-  if (!l.ins && !/mortgage|Prenda|Machinery|SGR/i.test(l.collateral)) s.push({ t: 'Add collateral', k: 'coll', d: 'Uninsured, crop lien only: request prenda agrícola or aval SGR' });
-  if (l.outcome === 'late_90' || l.outcome === 'default') s.push({ t: 'Restructure', k: 'restr', d: 'Move the short-term line to a 3–5 year term loan. Canje vs spot branch pending: contract type not in dataset' });
-  else if (l.outcome === 'late_30') s.push({ t: 'Pre-approve extension', k: 'watch', d: 'Offer term extension if the payment slips past 30 days' });
+  if (status === 'past_due_90' || status === 'default') s.push({ t: 'Restructure', k: 'restr', d: 'Move the short-term line to a 3–5 year term loan. Canje vs spot branch pending: contract type not in dataset' });
+  else if (status === 'past_due_30') s.push({ t: 'Pre-approve extension', k: 'watch', d: 'Review whether a term extension is appropriate now that the payment is at least 30 days past due.' });
   return s;
 }
-const PATH_COLOR = { alert: '#fb7185', ins: '#34d399', reg: '#38bdf8', coll: '#fbbf24', restr: '#fb923c', watch: '#a3e635' };
+const PATH_COLOR = { alert: '#fb7185', ins: '#34d399', reg: '#38bdf8', restr: '#fb923c', watch: '#a3e635' };
 function pathwayHTML(l) {
   const p = pathwayFor(l); if (!p) return '';
   const items = p.map((x, i) => {
@@ -1029,7 +1032,15 @@ function pathwayHTML(l) {
         <p class="text-[11px] text-slate-300 mt-0.5 leading-snug">${x.d}</p>
       </div></li>`;
   }).join('');
+  const showPrevention = snapIdx < 3 && SNAP[l.id][snapIdx][1] === 'current' &&
+    !l.ins && l.collateral === 'Crop lien only';
+  const prevention = showPrevention ? `<div class="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-2">
+    <p class="text-[10px] uppercase tracking-wider text-amber-200">Prevention · Oct–Dec</p>
+    <p class="mt-0.5 text-[11px] font-semibold text-amber-100">Add collateral</p>
+    <p class="text-[11px] text-slate-300">For this uninsured loan with only a crop lien, request a separate additional agricultural pledge (prenda agrícola) or an SGR guarantee.</p>
+  </div>` : '';
   return `<div class="pt-3 border-t border-ink-700/60">
+    ${prevention}
     <p class="text-[10px] uppercase tracking-wider text-slate-400 mb-2">Corrective pathway · ${p.length} steps</p>
     <ol class="space-y-2">${items}</ol></div>`;
 }
