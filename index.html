@@ -33,6 +33,22 @@
   #mapSvg { cursor: grab; user-select: none; }
   #mapSvg.dragging { cursor: grabbing; }
 </style>
+<style>
+.responsive-maps:not(.hidden){display:grid;grid-template-columns:minmax(0,1fr);gap:.75rem;align-items:start}
+.map-pane,.map-sidebar{min-width:0}
+.map-sidebar{display:grid;gap:.75rem}
+@media(min-width:850px){
+ .responsive-maps:not(.hidden){grid-template-columns:repeat(2,minmax(0,1fr))}
+ .map-sidebar{grid-column:1/-1;grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+.matrix-tools{display:flex;gap:6px;justify-content:flex-end;margin:.5rem 0}
+.matrix-tools button{padding:.22rem .55rem;border:1px solid #475569;border-radius:6px;color:#e2e8f0}
+.matrix-tools button:disabled{opacity:.4}
+#matrix-viewport{max-width:580px;max-height:400px;margin-inline:auto;overflow:auto}
+#matrix{display:block;width:100%;height:auto;max-width:none}
+#matrix circle{cursor:pointer}
+#matrix circle:focus{outline:none;stroke:#fff;stroke-width:2}
+</style>
 </head>
 <body class="text-slate-200 font-sans min-h-screen antialiased">
 <div class="max-w-[1400px] mx-auto px-4 md:px-6 py-4 space-y-4">
@@ -144,7 +160,15 @@
       </div>
       <div class="card rounded-2xl p-4">
         <p class="text-[10px] uppercase tracking-wider text-slate-400">Stabilizer / destabilizer matrix</p>
-        <svg id="matrix" viewBox="0 0 360 250" class="w-full h-auto mt-2"></svg>
+        <div class="matrix-tools" role="group" aria-label="Matrix zoom">
+          <button id="matrix-in" type="button" aria-label="Zoom in">+</button>
+          <button id="matrix-out" type="button" aria-label="Zoom out">−</button>
+          <button id="matrix-fit" type="button">Fit</button>
+        </div>
+        <div id="matrix-viewport" tabindex="0" aria-label="Matrix chart. Scroll to pan after zooming.">
+          <svg id="matrix" viewBox="0 0 360 250" role="group" aria-label="Drought exposure and repayment by area"></svg>
+        </div>
+        <p id="matrix-area" class="text-xs text-slate-300" role="status">Select a bubble to see area details.</p>
         <p class="text-[10px] text-slate-500">Bubble = area principal. Right = drought share of principal. Up = share of loans paid.</p>
       </div>
     </div>
@@ -155,8 +179,8 @@
   </section>
 
   <!-- ===== MAP ===== -->
-  <section data-panel="map" class="hidden grid grid-cols-1 xl:grid-cols-4 gap-3">
-    <div class="card rounded-2xl p-2 xl:col-span-3 relative overflow-hidden">
+  <section data-panel="map" class="hidden responsive-maps">
+    <div class="card rounded-2xl p-2 relative overflow-hidden map-pane">
       <div class="relative rounded-xl overflow-hidden border border-ink-700" style="background:radial-gradient(circle at 50% 40%, #0f1b30, #070d19)">
         <svg id="mapSvg" viewBox="0 0 520 520" class="w-full h-auto block"></svg>
         <!-- readout -->
@@ -179,25 +203,10 @@
         <div class="absolute bottom-3 right-3 text-[10px] text-slate-500">Dark reference grid · no basemap tiles</div>
       </div>
     </div>
-    <div class="space-y-3">
-      <div class="card rounded-2xl p-4">
-        <p class="text-[10px] uppercase tracking-wider text-slate-400">Layers</p>
-        <div id="layers" class="mt-2 space-y-1.5 text-xs"></div>
-      </div>
-      <div class="card rounded-2xl p-4">
-        <p class="text-[10px] uppercase tracking-wider text-slate-400">Dominant climate class</p>
-        <div id="mapLegend" class="mt-2 space-y-1.5 text-xs"></div>
-        <p class="text-[10px] text-slate-500 mt-2">Crop: Soybean (100%). Cells are 0.5° bins; colour = class with most principal in the cell.</p>
-      </div>
-      <div class="card rounded-2xl p-4" id="selCard">
-        <p class="text-[10px] uppercase tracking-wider text-slate-400">Selected</p>
-        <div id="selInfo" class="mt-2 text-xs text-slate-500">Click a loan point on the map.</div>
-      </div>
-    </div>
-      <section class="card rounded-2xl p-4 xl:col-span-4" aria-labelledby="farm-map-title">
+<section class="card rounded-2xl p-4 map-pane" aria-labelledby="farm-map-title">
       <h2 id="farm-map-title" class="font-semibold">Buenos Aires farm map</h2>
       <p class="mt-2 text-sm text-slate-300">Use + and − to zoom. Select a highlighted farm to see its location details.</p>
-      <iframe class="mt-3 w-full rounded-xl border border-slate-700" style="height:clamp(480px,72vh,700px)"
+      <iframe class="mt-3 w-full rounded-xl border border-slate-700" style="height:clamp(370px,53vw,540px)"
         title="Interactive Buenos Aires farm map" loading="lazy" sandbox="allow-scripts"
         srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;meta charset=&quot;utf-8&quot;&gt;
 &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
@@ -375,7 +384,7 @@
     const view = get(&quot;viewport&quot;), map = get(&quot;map&quot;);
     const x = (view.scrollLeft+view.clientWidth/2)/map.clientWidth;
     const y = (view.scrollTop+view.clientHeight/2)/map.clientHeight;
-    scale = factor ? Math.min(4,Math.max(1,scale*factor)) : 1;
+    scale = factor ? Math.min(2.5,Math.max(1,scale*factor)) : 1;
     map.style.width = 100*scale+&quot;%&quot;;
     view.scrollLeft = scale===1 ? 0 : x*map.clientWidth-view.clientWidth/2;
     view.scrollTop = scale===1 ? 0 : y*map.clientHeight-view.clientHeight/2;
@@ -386,13 +395,13 @@
   get(&quot;crop&quot;).addEventListener(&quot;change&quot;,() =&gt; refreshRegions(&quot;&quot;));
   get(&quot;region&quot;).addEventListener(&quot;change&quot;,() =&gt; refreshSites());
   for (const id of [&quot;site&quot;,&quot;other&quot;,&quot;year&quot;]) get(id).addEventListener(&quot;change&quot;,render);
-  get(&quot;in&quot;).addEventListener(&quot;click&quot;,() =&gt; zoom(1.3));
-  get(&quot;out&quot;).addEventListener(&quot;click&quot;,() =&gt; zoom(1/1.3));
+  get(&quot;in&quot;).addEventListener(&quot;click&quot;,() =&gt; zoom(1.2));
+  get(&quot;out&quot;).addEventListener(&quot;click&quot;,() =&gt; zoom(1/1.2));
   get(&quot;reset&quot;).addEventListener(&quot;click&quot;,() =&gt; zoom(0));
   get(&quot;viewport&quot;).addEventListener(&quot;wheel&quot;,event =&gt; {
     if (document.activeElement !== get(&quot;viewport&quot;) || !event.deltaY) return;
     event.preventDefault();
-    zoom(event.deltaY &lt; 0 ? 1.3 : 1/1.3);
+    zoom(event.deltaY &lt; 0 ? 1.2 : 1/1.2);
   }, {passive:false});
   get(&quot;other&quot;).disabled = get(&quot;year&quot;).disabled = !archive;
   refreshRegions(&quot;&quot;);
@@ -410,6 +419,21 @@
 &lt;/style&gt;
 &lt;style&gt;#soy-history p.farm-map-credit{display:block}&lt;/style&gt;&lt;/body&gt;&lt;/html&gt;"></iframe>
     </section>
+<div class="map-sidebar">
+      <div class="card rounded-2xl p-4">
+        <p class="text-[10px] uppercase tracking-wider text-slate-400">Layers</p>
+        <div id="layers" class="mt-2 space-y-1.5 text-xs"></div>
+      </div>
+      <div class="card rounded-2xl p-4">
+        <p class="text-[10px] uppercase tracking-wider text-slate-400">Dominant climate class</p>
+        <div id="mapLegend" class="mt-2 space-y-1.5 text-xs"></div>
+        <p class="text-[10px] text-slate-500 mt-2">Crop: Soybean (100%). Cells are 0.5° bins; colour = class with most principal in the cell.</p>
+      </div>
+      <div class="card rounded-2xl p-4" id="selCard">
+        <p class="text-[10px] uppercase tracking-wider text-slate-400">Selected</p>
+        <div id="selInfo" class="mt-2 text-xs text-slate-500">Click a loan point on the map.</div>
+      </div>
+    </div>
 </section>
 
   <!-- ===== CLIMATE ===== -->
@@ -910,7 +934,8 @@ function toVB(e) {
   return { x: (e.clientX - r.left) * MV.W / r.width, y: (e.clientY - r.top) * MV.W / r.height };
 }
 function zoomAt(p, factor) {
-  const nk = clamp(MV.k * factor, 1, 10);
+  const nk = clamp(MV.k * factor, 1, 2.5);
+  if (nk === 1) { fullExtent(); return; }
   const wx = (p.x - MV.tx) / MV.k, wy = (p.y - MV.ty) / MV.k;
   MV.tx = p.x - wx * nk; MV.ty = p.y - wy * nk; MV.k = nk;
   renderMap();
@@ -1078,7 +1103,7 @@ function renderTop5() {
     </div>`).join('');
 }
 function renderMatrix() {
-  const areas = areaStats(), W = 360, H = 250, pl = 40, pr = 10, pt = 10, pb = 28;
+  const areas = areaStats(), W = 360, H = 250, pl = 48, pr = 28, pt = 23, pb = 34;
   const X = v => pl + v / 100 * (W - pl - pr), Y = v => pt + (H - pt - pb) * (1 - v / 100);
   const paidBy = {};
   LOANS.forEach(l => { if (l.outcome === 'paid') paidBy[l.dept] = (paidBy[l.dept] || 0) + 1; });
@@ -1093,9 +1118,8 @@ function renderMatrix() {
   areas.forEach(a => {
     const drought = a.clim.drought / a.P * 100;
     const paid = (paidBy[a.dept] || 0) / a.n * 100;
-    const r = 5 + Math.sqrt(a.share) * 2.2;
-    s += `<circle cx="${X(drought).toFixed(1)}" cy="${Y(paid).toFixed(1)}" r="${r.toFixed(1)}" fill="${CLIM[a.dom].color}" fill-opacity=".55" stroke="${CLIM[a.dom].color}" stroke-width="1.2"><title>${a.dept}: ${Math.round(drought)}% drought principal · ${Math.round(paid)}% loans paid · ${usd(a.P)}</title></circle>`;
-    s += `<text x="${X(drought).toFixed(1)}" y="${(Y(paid) - r - 3).toFixed(1)}" text-anchor="middle" font-size="9" fill="#cbd5e1">${a.dept}</text>`;
+    const r = Math.min(12, 5 + Math.sqrt(a.share) * 2.2);
+    s += `<circle tabindex="0" role="button" aria-label="${a.dept}" cx="${X(drought).toFixed(1)}" cy="${Y(paid).toFixed(1)}" r="${r.toFixed(1)}" fill="${CLIM[a.dom].color}" fill-opacity=".55" stroke="${CLIM[a.dom].color}" stroke-width="1.2"><title>${a.dept}: ${Math.round(drought)}% drought principal · ${Math.round(paid)}% loans paid · ${usd(a.P)}</title></circle>`;
   });
   $('matrix').innerHTML = s;
 }
@@ -1294,7 +1318,34 @@ function initPortfolioFilters(){
  refreshPortfolioFilters();
 }
 
+function initMatrixZoom() {
+  const view = $('matrix-viewport'), chart = $('matrix');
+  let level = 0;
+  const scales = [1, 1.25, 1.5, 2];
+  function zoom(next) {
+    const width = chart.clientWidth, height = chart.clientHeight;
+    const x = width ? (view.scrollLeft + view.clientWidth / 2) / width : .5;
+    const y = height ? (view.scrollTop + view.clientHeight / 2) / height : .5;
+    level = clamp(next, 0, scales.length - 1);
+    chart.style.width = scales[level] * 100 + '%';
+    view.scrollLeft = level ? x * chart.clientWidth - view.clientWidth / 2 : 0;
+    view.scrollTop = level ? y * chart.clientHeight - view.clientHeight / 2 : 0;
+    $('matrix-in').disabled = level === scales.length - 1;
+    $('matrix-out').disabled = level === 0;
+  }
+  $('matrix-in').addEventListener('click', () => zoom(level + 1));
+  $('matrix-out').addEventListener('click', () => zoom(level - 1));
+  $('matrix-fit').addEventListener('click', () => zoom(0));
+  function identify(target) {
+    const title = target.closest('circle')?.querySelector('title');
+    if (title) $('matrix-area').textContent = title.textContent;
+  }
+  chart.addEventListener('click', e => identify(e.target));
+  chart.addEventListener('focusin', e => identify(e.target));
+  zoom(0);
+}
 function init() {
+  initMatrixZoom();
   $('stampText').textContent = 'Snapshot as of ' + MONTH_END[8];
   setCover(false);
   showTab('overview');
@@ -1333,8 +1384,8 @@ function init() {
     if (drag && drag.moved) return;
     const c = e.target.closest('circle.pt'); if (c) selectLoan(c.dataset.loan);
   });
-  $('zIn').addEventListener('click', () => zoomAt({ x: MV.W / 2, y: MV.W / 2 }, 1.5));
-  $('zOut').addEventListener('click', () => zoomAt({ x: MV.W / 2, y: MV.W / 2 }, 1 / 1.5));
+  $('zIn').addEventListener('click', () => zoomAt({ x: MV.W / 2, y: MV.W / 2 }, 1.2));
+  $('zOut').addEventListener('click', () => zoomAt({ x: MV.W / 2, y: MV.W / 2 }, 1 / 1.2));
   $('zHome').addEventListener('click', fullExtent);
   $('layers').addEventListener('change', e => { const k = e.target.dataset.layer; if (k) { LAYERS[k] = e.target.checked; renderMap(); } });
   icons();
