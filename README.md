@@ -25,28 +25,28 @@ SowSmart is a climate-risk dashboard for agricultural lenders, built for the **S
 ## My contributions to SowSmart
 I designed and coded the front-end architecture and interactive dashboard ('dashboardprototype.html' / 'sowsmartdashboardfinal.html' , deployed as 'index.html'), building four of the five primary tabs end-to-end. I also contributed to data sourcing,  data cleaning and mock-portfolio generation. My contributions are detailed below: 
 
-## Header and overall structure
+**Header and overall structure**
 
 Designed and built the header, the “Show with Suyana cover” toggle, and the footer’s methodology and simulated-data notes.
 Designed and built the core dashboard structure, tabs, snapshot scrubber, and filters.
 
-## Overview
+**Overview**
 
 Designed and built the KPI cards for principal, outstanding balance, expected loss, and loans in alert, along with the insurance-cover and outcome donuts and the principal-share-by-area bars.
 Designed and built the executive signal, the top-5 holdings at risk, and the risk-rating distribution from 1 (low) to 5 (severe).
 Designed and builtthe portfolio-level cover logic, with a 10% deductible and a $50,000 per-loan cap.
 Designed and builtthe prototype version of the stabilizer/destabilizer matrix. I directed the addition of zoom controls, keyboard focus, and area labels on click, which a collaborator implemented.
 
-## Climate risk
+**Climate risk**
 
 Designed and built the tab’s layout and visualizations, including the Argentina soybean climate analysis, its charts and monthly table, the irrigation notes, and the Climate outlook. Spatial map view was added by a collaborator. 
 
-## Timeline and loans
+**Timeline and loans**
 
 Designed and built the snapshot strip, balance and repayment charts, corrective pathways prototype, the loan table, and the loan detail panel.
 Directed the loan detail and revised corrective pathways recommendations: “Early contact,” snapshot-based status logic, revised wording, and the “Add collateral” card. A collaborator implemented these.
 
-## Climate data sourcing and mock-portfolio generation 
+**Climate data sourcing and mock-portfolio generation** 
 
 Generated the mock financial dataset of 200 soybean loans that drives loan details and defaults.
 Downloaded relevant climate data (Soil Moisture and Temperature) from NASA Power repository.
